@@ -1,11 +1,13 @@
 
-from flask import Flask, request,make_response  ,session
+from flask import Flask, request,make_response  ,session,render_template
 import os
 from flask_cors import CORS
 from modules import *
 from models import * 
-from datetime import datetime
+from datetime import datetime,timedelta,timezone
 from controllers import *
+import json
+from daraja import *
 app = Flask(__name__)
 
 app.secret_key = 'ussd'
@@ -14,52 +16,87 @@ CORS(app)
 
 response = ""
 
-def replace_and_slice(ls):
-    index_of_00 = -1
-    index_of_hash = -1
-    for i in range(len(ls)):
-        if ls[i] == '00':
-            index_of_00 = i
-        if ls[i] == '#':
-            index_of_hash = i
+@app.route("/home")
+def home():
+    action = request.args.get('action')
+    actions = [
+        {"name":"stk-push","data":["phone","amount","callback","description","reference"],"description":"Initiate an STK push to a users mobile phone requesting them to validate a transaction"},
+        {"name":"stk-query","data":["checkout_id"],"description":"Query the status of a transaction inititated by stk push"},
+        {"name":"account-balance","data":["result_url"],"description":"Request account balance of your account"},
+        {"name":"transaction-status","data":["transaction_id","result_url"],"description":"Query the status of a lipa na mpesa transaction"},
+        {"name":"b2c","data":["result_url","amount","remarks","occasion","phone"],"description":"Initiate a business to customer checkout to transfer funds"},
+        {"name":"b2b","data":["result_url","amount","remarks","reference","reciever"],"description":"Initiate a business to bussiness transfer of funds"}
+    ]
+    selected = None
+    if action:
+        for act in actions:
+            if act["name"] == action:
+                selected = act
     
-    if index_of_00 != -1:
-        ls[index_of_00] = ''
-        ls = ls[index_of_00:]
-    if index_of_hash != -1:
-        ss = []
-        ln = 0
-        for l in ls:
-            if l != '#':
-                ss.append(l)
-            else:
-                ln += 1
-        print("ss=>",ss)
-        last = ss[-1]
-        ss = ss[:-ln]
-        #if last != '#':
-            #ss[-1] = last
-        return ss
-        #ls[index_of_hash] = ''
-    if ls[-1] == '0' and len(ls) > 3:
-        ss = []
-        for k in range(1,3):
-            ss.append(ls[k-1])
-        #ss.append('0')
-        return ss
-    
-    return ls
+    return render_template("index.html",actions=actions,action=action,selected=selected)
 
-def nouser():
-    response = 'CON Account not Found.\n'
-    response += '00. Main Menu\nq.Exit\n'
-    return response
+@app.route("/result",methods=['POST'])
+async def result_url():
+    data = request.json
+    print(data)
+    return {"success":True}
 
-def inactiveuser():
-    response = 'CON You have deactivated your Membership.\nContact support for reinstatement.\n'
-    response += '00. Main Menu\nq.Exit\n'
-    return response
+@app.route("/daraja",methods=['POST'])
+async def daraja():
+    if session.get("access_token") == None:
+        session["access_token"] = getToken()
+        session["access_token"]["time"] = datetime.now()+timedelta(int(session["access_token"]['expires_in']))
+    #print(session["access_token"])
+    if session["access_token"]["time"]  == None :
+        session["access_token"] = getToken()
+        session["access_token"]["time"] = datetime.now()+timedelta(int(session["access_token"]['expires_in']))
+    response = {}
+    #if response.get('message') == 'Invalid Access Token':
+    #    access_token["time"] = None
+    data = request.json
+    action = data.get("action")
+    print("action",action)
+    if action == None:
+        return json.dumps({"success":True,"access_token":session["access_token"]["access_token"]})
+    elif action == "stk-push":
+        response = await stk(
+            {"phone":data.get("phone"),"amount":data.get("amount"),
+            "callback":data.get("callback"),"description":data.get("description"),
+            "reference":data.get("reference")
+            },token=session["access_token"]["access_token"]
+        )
+    elif action == "stk-query":
+        response = await query(
+            {"checkout_id":data.get("checkout_id")},
+            token = session["access_token"]["access_token"]
+        )
+    elif action == "account-balance":
+        response = await account_balance(
+            {"result_url":data.get("result_url")},
+            token=session["access_token"]["access_token"]
+        )
 
+    elif action == "transaction-status":
+        response = await trans_query({"transaction_id":data.get('transaction_id'),"result_url":data.get('result_url')},
+            token=session["access_token"]["access_token"]
+        )
+
+    elif action == "b2c":
+        response = await b2c({
+            "result_url":data.get("result_url"),"amount":data.get("amount"),
+            "remarks":data.get("remarks"),"occassion":data.get("occassion"),
+            "phone":data.get("phone")
+        },token=session["access_token"]["access_token"])
+    elif action == "b2b":
+        response = await b2b({
+            "result_url":data.get("result_url"),"amount":data.get("amount"),
+            "remarks":data.get("remarks"),"reference":data.get("reference"),
+            "reciever":data.get("reciever")
+        },token=session["access_token"]["access_token"])
+    if 'Invalid Access Token' in str(response.get('message')):
+        print("response",response.get("message"))
+        session["access_token"] = None
+    return json.dumps(response)
 
 @app.route('/', methods=['POST', 'GET'])
 async def ussd_callback():
@@ -170,8 +207,8 @@ async def ussd_callback():
                         response = await loanApplication(text_array,initial=5,user=session['user'])
                     elif text_array[4] == '2':#loans guarantors
                         response = await loanGuarantors(text_array,initial=5,user=session['user'])
-                    elif text_array[4] == '3':#loans appraisals
-                        response = loanAppraisals(text_array,initial=5)
+                    #elif text_array[4] == '3':#loans appraisals
+                    #    response = loanAppraisals(text_array,initial=5)
                     #"""
                     #elif text_array[4] == '4':#loans endorsements
                     #    response = 'CON Not Available\n00.Main Menu\n'
@@ -180,8 +217,8 @@ async def ussd_callback():
                     #elif text_array[4] == '6':#loans schedule
                     #    response = loanSchedule(text_array,initial=5)
                     #"""
-                    elif text_array[4] == '4':#delete loan
-                        response = loanDelete(text_array,initial=5)
+                    elif text_array[4] == '3':#delete loan
+                        response = await loanDelete(text_array,initial=5,user=session['user'])
                     #elif text_array[4] == '5':#shares/saving adjustment
                     #    response = 'CON Not Available\n00.Main Menu\n'
                     else:
@@ -226,8 +263,8 @@ async def ussd_callback():
                 response = 'CON Your Account Details.\n'
                 response += f'Member No: {session['user']['MemberNo']}\nID No: {session['user']['IDNo']}\n'
                 response += f'Surname: {session['user']['Surname']}\nNames: {session['user']['OtherNames']}\n'
-                response += f'SEX: {session['user']['Sex']}\nDOB: {session['user']['DOB'].split(" ")[0]}\n'
-                response += f'Mobile: {session['user']['MobileNo']}\nSACCO: {session['user']['CompanyCode']}\n'
+                response += f'SEX: {session['user']['Sex']}\nDOB: {str(session['user']['DOB']).split(" ")[0]}\n'
+                response += f'Mobile: {session['user']['MobileNo']}\nSACCO: {session['user']['CompanyName']}\n'
                 response += '#.Previous Menu\n00.Main Menu\nq.Exit\n'   
             else:
                 response = "END Invalid input."
@@ -235,7 +272,7 @@ async def ussd_callback():
     elif text_array[0] == '3':
         response = registerCompany(text_array)
     elif text_array[0] == '4':
-        response = registerAgent(text_array)
+        response = await registerAgent(text_array)
     else:
         response = 'END Invalid Input.'
 
@@ -244,5 +281,5 @@ async def ussd_callback():
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8000))
-    app.run(host="0.0.0.0", port=port )
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host="0.0.0.0", port=port,debug=True )

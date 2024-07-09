@@ -10,21 +10,74 @@ def get_age(birthdate_str):
     if (today.month, today.day) < (birthdate.month, birthdate.day):
         age -= 1
     return int(age)
+
+
+def replace_and_slice(ls):
+    index_of_00 = -1
+    index_of_hash = -1
+    for i in range(len(ls)):
+        if ls[i] == '00':
+            index_of_00 = i
+        if ls[i] == '#':
+            index_of_hash = i
+    
+    if index_of_00 != -1:
+        ls[index_of_00] = ''
+        ls = ls[index_of_00:]
+    if index_of_hash != -1:
+        ss = []
+        ln = 0
+        for l in ls:
+            if l != '#':
+                ss.append(l)
+            else:
+                ln += 1
+        print("ss=>",ss)
+        last = ss[-1]
+        ss = ss[:-ln]
+        #if last != '#':
+            #ss[-1] = last
+        #if ss[-1] != last:
+            #pass#ss[-1] = last
+        return ss
+        #ls[index_of_hash] = ''
+    if ls[-1] == '0' and len(ls) > 3:
+        ss = []
+        for k in range(1,3):
+            ss.append(ls[k-1])
+        #ss.append('0')
+        return ss
+    
+    return ls
+
+def nouser():
+    response = 'CON Account not Found.\n'
+    response += '00. Main Menu\nq.Exit\n'
+    return response
+
+def inactiveuser():
+    response = 'CON You have deactivated your Membership.\nContact support for reinstatement.\n'
+    response += '00. Main Menu\nq.Exit\n'
+    return response
+    
 def main_menu():
     response = "CON Welcome to our service\n"
-    response += "1. Register as new Member\n"
+    response += "1. Register new Member\n"
     response += "2. Login \n"
     response += "3. Company Registration\n"
     response += '4. Agent Recruitment\n'
     response += 'q.Exit\n'
     return response
 
-def registerAgent(text_array):
+async def registerAgent(text_array):
     if len(text_array) == 1:
         response = 'CON Enter Staff Names'
     elif len(text_array) == 2:
-        response = 'CON Enter Staff Number'
+        response = 'CON Enter Company Code'
     elif len(text_array) == 3:
+        company = await Companies.find(company_number)
+        if company == None:
+            return 'END No Company found \n Try again '
         response = 'CON Enter ID No.'
     elif len(text_array) == 4:
         response = 'CON Enter Gender(Male,Female).'
@@ -44,7 +97,7 @@ def registerAgent(text_array):
         else:
             response = 'END Invalid Input\n'
         names = text_array[1]
-        staff_number = text_array[2]
+        company_number = text_array[2]
         id_no = text_array[3]
         gender = text_array[4]
         print(gender,gender.lower())
@@ -54,9 +107,10 @@ def registerAgent(text_array):
         print(mobile_no)
         if len(mobile_no) < 9:
             return 'END Invalid Phone number'
+        
         address = text_array[6]
         occupation = text_array[7]
-        print("adding agent",station,names,staff_number,id_no,gender,mobile_no,address,occupation)
+        print("adding agent",station,names,company_number,id_no,gender,mobile_no,address,occupation)
         response = 'CON Details added successfully\n00.Main Menu\nq.Exit\n'
     else:
         response = "END Invalid input."
@@ -67,7 +121,7 @@ async def registerMember(text_array):
         response = "CON Enter Company Code"
     elif len(text_array) == 2:
         company_c = text_array[1]
-        company = await Companes.find(company_c)
+        company = await Companies.find(company_c)
         if company == None:
             response = 'END Could not find company try again.\n'
             return response
@@ -108,10 +162,16 @@ async def registerMember(text_array):
         date_of_birth = text_array[7]
         id_no = text_array[8]
         gender = text_array[9].upper()
-        last = await Members.get_last(company_code)
-        if last['MemberNo'] == None:
-            response = 'END Sorry the Company is not integrated to accept new Members.\nContact the Company for support\n'
+        find = await Members.login(id_no)
+        if find != None:
+            response = 'END Member with ID no is already registered\n'
             return response
+        last = await Members.get_last(company_code,county)
+        if last['MemberNo'] == None:
+            response = 'END Sorry the Company does not accept new Members.\nContact the Company for support\n'
+            return response
+        if last['Employer'] == None:
+            last['Employer'] = ""
         agent = await Agents.find(agent)
         member = Member(
             MemberNo = last['MemberNo'],
@@ -122,12 +182,12 @@ async def registerMember(text_array):
             MobileNo = phone,Age = get_age(date_of_birth),
             IDNo = id_no,StaffNo = last['MemberNo'],
             Sex = gender,DOB = date_of_birth,
-            Station = county,Province = station,District=station
+            Station = county,Province = county,District=county
         )
         member = member.get()
         result = await Members.create(member)
         if result:
-            print("registering",company_code)
+            print("registering",company_code,last['MemberNo'])
             response = "CON Thank you for providing your details.\n"
         else:
             response = "CON Could not create account, try again later.\n"
@@ -139,6 +199,9 @@ async def registerMember(text_array):
     return response
 
 def registerCompany(text_array):
+    response = 'CON For company registration contact info@amtechafrica.com.\n'
+    response += "00. Main Menu\nq.Exit"
+    return response
     if len(text_array) == 1:
         response = 'CON Enter Company Name.'
     elif len(text_array) == 2:
@@ -160,7 +223,7 @@ def registerCompany(text_array):
     elif len(text_array) == 10:
         response = 'CON Enter Company Business Status.'
     elif len(text_array) == 11:
-        print('regsiter company',text_array)
+        print('regsitering company',text_array)
         response = 'CON Company details saved.\n'
         response += "00. Main Menu\nq.Exit"
     else:
@@ -215,11 +278,11 @@ def loansProcessing():
     response = 'CON Loan Applications.\n'
     response += '1.Loan Application.\n'
     response += '2.Loan Guarantors.\n'
-    response += '3.Loan Appraisals.\n'
+    #response += '3.Loan Appraisals.\n'
     #response += '4.Endorsements.\n'
     #response += '5.Payments posting\n'
     #response += '6.Loans Schedule\n'
-    response += '4.Delete Loan\n'
+    response += '3.Delete Loan\n'
     #response += '5.Shares\\Savings \n'
     response += '#.Previous Menu\n00.Main Menu.\n'
     return response
@@ -272,6 +335,9 @@ async def loanApplication(text_array,initial=0,user=None):
         else:
             loan_types = await Loans.get_types(user['CompanyCode'])
             session['user']['selected'] = loan_types
+        if float(text_array[initial]) > loan_limit:
+                response += f'Applied Loan Amount {text_array[initial]} can not be greater than current limit {loan_limit}.\n#.previous Menu\n00.Main Menu\n'
+                return response
         if len(text_array) - initial == 1:
             response = 'CON Select Loan type.\n'
             ind = 0
@@ -391,15 +457,50 @@ def loanSchedule(text_array,initial):
         response += 'Enter Loan No.\n'
     response += '00.Main Menu\n'
     return response
-def loanDelete(text_array,initial=0):
+async def loanDelete(text_array,initial=0,user=None):
     response = 'CON Delete Loan.\n'
-
+    if session['user'].get('loans'):
+        loans = session['user']['loans']
+    else:
+        loans = await Loans.find(user)
+        session['user']['loans'] = loans
+    status = {0:'Deleted',1:"Applied",2:"Guarantors",3:"Endorsements",4:"Disbursed"}
     if len(text_array) > initial:
         loan_no = text_array[initial]
-        response += f'Loan {loan_no} has been submitted for deletion. Checkin to view progress.\n'
+        selected = None
+        if len(str(loan_no)) == 1:
+            ind = 0            
+            for loan in loans:
+                if int(loan['Status']) < 4:
+                    ind += 1
+                    if ind == int(loan_no):
+                        selected = loan
+                        break
+        else:
+            for loan in loans:
+                if loan['LoanNo'] == loan_no:
+                    selected = loan
+                    break
+        if selected == None:
+            response += 'Selected Loan deoes not exist\n#.previous Menu\n00.Main Menu\n'
+            return response
+        result = await Loans.delete(selected,user)
+        if result and result == True:
+            response += f'Loan {selected['LoanNo']} has been submitted for deletion. Checkin to view progress.\n'
+        else:
+            response += "An error occured during submission of request.\nTry again later.\n"
     else:
-        response += 'Enter Loan No.\n'
-    response += '00.Main Menu\n'
+        ind = 0
+        
+        for loan in loans:
+            if int(loan['Status']) < 4:
+                ind += 1
+                response += f"{ind}. Loan {loan['LoanNo']} - {float(loan['LoanAmt'])} @ {float(loan['Interest'])}% ({status[int(loan['Status'])]})\n"
+        if len(loans) == 0:
+            response += "You have no Loans. Proceed to apply\n"
+        else:
+            response += 'Enter Loan No.\n'
+    response += '#.previous Menu\n00.Main Menu\n'
     return response
 
 def receiptPosting(text_array,initial=0):
@@ -509,6 +610,7 @@ async def myLoans(text_array,initial=0,user=None):
             loans = await Loans.find(user)
             session['user']['loans'] = loans
         #print("my loans=>",loans)
+        status = {0:'Deleted',1:"Applied",2:"Guarantors",3:"Endorsements",4:"Disbursed"}
         print("len",len(text_array) - initial)
         if len(text_array) - initial > 1:
             loan_no = text_array[-1]
@@ -551,21 +653,21 @@ async def myLoans(text_array,initial=0,user=None):
                 for loan in loans:
                     if int(loan['Status']) != 1:
                         ind += 1
-                        response += f"{ind}. Loan {loan['LoanNo']} - {float(loan['LoanAmt'])} @ {float(loan['Interest'])}% \n"
+                        response += f"{ind}. Loan {loan['LoanNo']} - {float(loan['LoanAmt'])} @ {float(loan['Interest'])}% ({status[int(loan['Status'])]})\n"
             elif text_array[initial] == '2':
                 response = 'CON Pending Loans.\n'
                 ind = 0
                 for loan in loans:
                     if int(loan['Status']) == 1:
                         ind += 1
-                        response += f"{ind}. Loan {loan['LoanNo']} - {float(loan['LoanAmt'])} @ {float(loan['Interest'])}% \n"
+                        response += f"{ind}. Loan {loan['LoanNo']} - {float(loan['LoanAmt'])} @ {float(loan['Interest'])}% ({status[int(loan['Status'])]}) \n"
             elif text_array[initial] == '3':
                 response = 'CON Deleted Loans.\n'
                 ind = 0
                 for loan in loans:
                     if int(loan['Status']) == 0:
                         ind += 1
-                        response += f"{ind}. Loan {loan['LoanNo']} - {float(loan['LoanAmt'])} @ {float(loan['Interest'])}% \n"
+                        response += f"{ind}. Loan {loan['LoanNo']} - {float(loan['LoanAmt'])} @ {float(loan['Interest'])}% ({status[int(loan['Status'])]})\n"
         
     else:
         response += '1.Approved Loans.\n2.Pending Loans.\n3.Deleted Loans.\n'

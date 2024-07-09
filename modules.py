@@ -28,7 +28,7 @@ class Companies:
 class Agents:
     @staticmethod
     async def find(id):
-        agent = await DatabaseManager.query(f"select * from Agents where id='%d' or IdNo='%d'"%(id,id))
+        agent = await DatabaseManager.query(f"select * from Agents where id='%s' or IdNo='%s'"%(id,id))
         if agent == None or len(agent) == 0:
             return None
         agent = agent[0]
@@ -54,7 +54,7 @@ class Shares:
     async def my_shares(user):
         contribs = await DatabaseManager.query(f"select * from CONTRIB where MemberNo='%s' and CompanyCode='%s'"%(user['MemberNo'],user['CompanyCode']))
         if contribs == None or len(contribs) == 0:
-            return None
+            return []
         contributions = []
         for contrib in contribs:
             c = Contribution(id=contrib[0],MemberNo=contrib[1],Amount=contrib[7],ShareBal=contrib[8],
@@ -81,6 +81,12 @@ class Shares:
         return shares
 
 class Loans:
+    @staticmethod
+    async def delete(loan,user):
+        result = DatabaseManager.update(f"update LOANS set status=0 where MemberNo='%s' and CompanyCode='%s' and LoanNo='%s'"%(user['MemberNo'],user['CompanyCode'],loan['LoanNo']))
+        if result and result == True:
+            return True
+        return None
     @staticmethod
     async def find(user):
         result = await DatabaseManager.query(f"select * from LOANS where MemberNo='%s' and CompanyCode='%s' "%(user['MemberNo'],user['CompanyCode']))
@@ -188,20 +194,28 @@ class Beneficiaries:
         return beneficiaries
 class Members:
     @staticmethod
-    async def get_last(company):
+    async def get_last(company,county):
         query = await DatabaseManager.query(f"select MemberNo,Employer from Members where CompanyCode='%s' order by id desc"%(company))
         if query == None or len(query) == 0:
-            new_query = await DatabaseManager.query(f"select CountyCode,CompanyName from Company where CompanyCode='%s' and CountyCode is not NULL order by id desc"%(company))
+            new_query = await DatabaseManager.query(f"select LocationCode from Locations where LocationName like '%s'"%("%"+county+"%"))
             if new_query == None or len(new_query) == 0:
                 return {'MemberNo':None,'Employer':None}
             new_query = new_query[0]
-            return {'MemberNo':new_query[0]+"000001",'Employer':new_query[1]}
+            employer = await DatabaseManager.query(f"select CompanyName from Company where CompanyCode='%s'"%(company))
+            if employer == None or len(employer) == 0:
+                return {'MemberNo':new_query[0]+"000001",'Employer':None}
+            employer = employer[0]
+            return {'MemberNo':new_query[0]+"000001",'Employer':employer}
         result = query[0]
-        county_code = result[0][:3]
-        return {'MemberNo':int(result[0][3:])+1,'Employer':result[1]}
+        new_query = await DatabaseManager.query(f"select LocationCode from Locations where LocationName like '%s'"%("%"+county+"%"))
+        if new_query == None or len(new_query) == 0:
+            county_code = result[0][:3]
+        else:
+            county_code = new_query[0][0]
+        return {'MemberNo':county_code+str(int(result[0][3:])+1),'Employer':result[1]}
     @staticmethod
-    async def create(user):
-        result = DatabaseManager.insert(f"insert into MEMBERS (MemberNo,StaffNo,IDNo,Surname,OtherNames,Sex,DOB,Employer,Province,District,Station,CompanyCode,MobileNo,PhoneNo,Age) values('%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s')"%(member['MemberNo'],member['StaffNo'],member['IDNo'],member['Surname'],member['OtherNames'],member['Sex'],member['DOB'],member['Employer'],member['Province'],member['District'],member['Station'],member['CompanyCode'],member['MobileNo'],member['PhoneNo'],member['Age']))
+    async def create(member):
+        result = DatabaseManager.insert(f"insert into MEMBERS (MemberNo,StaffNo,IDNo,Surname,OtherNames,Sex,DOB,Employer,Province,District,Station,CompanyCode,MobileNo,PhoneNo,Age,AgentId) values('%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s')"%(member['MemberNo'],member['StaffNo'],member['IDNo'],member['Surname'],member['OtherNames'],member['Sex'],member['DOB'],member['Employer'],member['Province'],member['District'],member['Station'],member['CompanyCode'],member['MobileNo'],member['PhoneNo'],member['Age'],member['AgentId']))
         if result and result == True:
             return True
 
@@ -278,7 +292,7 @@ class Members:
         company_code = 1234
         share_code = 'SHARE1'
         member_no = 'Member_1'
-        member = await DatabaseManager.query(f"select * from MEMBERS where id='%s' or IDNo='%s'"%(id,id))
+        member = await DatabaseManager.query(f"select m.*,c.CompanyName FROM [BOSA].[dbo].[MEMBERS] m INNER JOIN Company c ON c.CompanyCode = m.CompanyCode where m.id='%s' or m.IDNo='%s'"%(id,id))
         if member == None or len(member) == 0:
             return None
         member = member[0]
@@ -297,12 +311,12 @@ class Members:
             PIN = member[31],ShareCap = member[33],
             BankCode = member[34], initsharesTransfered = member[40],
             LoanBalance = member[42], InterestBalance = member[43],EmailAddress = member[45],accno=member[46],
-            memberwithdrawaldate = member[-15],
-            Dormant = member[-14],email = member[-12],
-            TransactionNo = member[-11],MobileNo = member[-10],
-            AgentId = member[-9],PhoneNo = member[-8],Entrance = member[-7],
-            status = member[-6],mstatus = member[-5],Age=member[-4],
-            UserName=member[-2]
+            memberwithdrawaldate = member[-16],
+            Dormant = member[-15],email = member[-13],
+            TransactionNo = member[-12],MobileNo = member[-11],
+            AgentId = member[-10],PhoneNo = member[-9],Entrance = member[-8],
+            status = member[-7],mstatus = member[-6],Age=member[-5],
+            UserName=member[-3],CompanyName=member[-1]
         )
         result = result.get()
         #print("member=>",result)

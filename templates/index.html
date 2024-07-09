@@ -1,0 +1,166 @@
+
+
+<html>
+    <head>
+        <title>Home</title>
+        <link rel="styleshheet" href="/static/bootstrap/css/bootstrap.min.css">
+        <link rel="styleshheet" href="/static/bootstrap/css/bootstrap.css">
+        <style>
+            .row div{
+                width: 234px;
+                height: 149px;
+                cursor: pointer;
+                box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+            }
+            .row div:hover{
+                box-shadow: rgba(0, 0, 0, 0.35) 0px 5px 15px;
+            }
+            .main{
+                max-width: 75%;
+                margin: 5% auto;
+                display: grid;
+                text-align: center;
+                place-items: center;
+            }
+            .main .container .row{
+                width: 100%;
+                display:flex;
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap:9px;
+            }
+            .col-sm{
+                position:relative;
+            }
+            .col-sm button{
+                position: absolute;
+                right: 2%;
+                bottom: 1%;
+                cursor: pointer;
+                padding: 8px 10px;
+                border-radius: 4px;
+                background: white;
+                color: green;
+                font-size: 15px;
+            }
+            .row{
+                position: relative;
+            }
+            .hover{
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                background: white;
+                z-index: 99;
+                min-width: 450px;
+                min-height: 548px;
+                border-radius: 9px;
+                box-shadow: rgba(0, 0, 0, 0.25) 0px 54px 55px, rgba(0, 0, 0, 0.12) 0px -12px 30px, rgba(0, 0, 0, 0.12) 0px 4px 6px, rgba(0, 0, 0, 0.17) 0px 12px 13px, rgba(0, 0, 0, 0.09) 0px -3px 5px;
+                transform: translate(-50%,-50%);
+
+            }
+            .hover button{
+                position:absolute;
+                bottom: 1%;
+                left: 40%;
+                width: 20%;
+                height: 28px;
+            }
+            .form-control{
+                padding: 12px;
+                width: 80%;
+                margin-top: 8px;
+            }
+            #error_response{
+                font-size: 18px;
+                color: red;
+            }
+        </style>
+        <script src="/static/jquery.js"></script>
+        <script src="https://kit.fontawesome.com/c63faa1f51.js" crossorigin="anonymous"></script>
+    </head>
+    <body>
+        <div class="main">
+            <div class="container">
+                <div class="row">
+                    {%if action%}
+                        <div class="col-md hover">
+                            <a style="float:right;" href="/home">&times</a>
+                            <h3>{{selected["name"]|upper}}</h3><hr/>
+                            <section style="overflow-y: auto;overflow-x: scroll;">
+                                <form onsubmit="return false" id="data-form">
+                                <input type="hidden" name="action" value="{{selected['name']}}">
+                                {%for data in selected["data"]%}
+                                    <input class="form-control" placeholder="{{data}}" name="{{data}}" required><br>
+                                {%endfor%}
+                                </form>
+                                <p id="error_response"></p>
+                            </section>
+                            <button onclick="simulateRequest()">Submit</button>
+                        </div>
+                    {%endif%}
+                    {%for action in actions%}
+                        <div id='{{action["name"]}}' class="col-sm">
+                            <h4>{{action["description"]}}</h4>
+                            
+                            <button onclick='location.search="action={{action['name']}}"'>Select</button>
+                        </div>
+                    {%endfor%}
+                </div>
+              </div>
+        </div>
+        <script>
+            document.getElementById("error_response").innerHTML = ``;
+            function simulateRequest(){
+                const err = document.getElementById("error_response")
+                const form_data = document.getElementById("data-form");
+                const formData = new FormData(form_data);
+                const jsonData = {};
+
+                for (var [key, value] of formData.entries()) {
+                    if(value == ""){
+                        alert("All values are required");
+                        return false;
+                    }
+                    if(key == "phone"){
+                        if(value.startsWith('0')){
+                            value = '254' + value.slice(1);
+                            value = value.replace(/\s/g, '');
+                        }
+                    }
+                    jsonData[key] = value;
+                }
+
+                const jsonString = JSON.stringify(jsonData);
+
+                console.log(jsonString);
+                err.innerHTML = '<i class="fa fa spinner"></i>sending data..'
+                const options = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(jsonData)
+                };
+
+                fetch("/daraja", options)
+                    .then(response => {
+                        if (!response.ok) {
+                            err.innerHTML = `Network response was not ok`
+                            throw new Error('Network response was not ok');
+
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('POST request succeeded with JSON response:', data);
+                        err.innerHTML = `request response:,<br> ${data.message ? data.message: JSON.stringify(data)}`
+                    })
+                    .catch(error => {
+                        console.error('Error during POST request:', error);
+                        err.innerHTML = `request failed with response:, ${error}`
+                    });
+            }
+        </script>
+    </body>
+</html>

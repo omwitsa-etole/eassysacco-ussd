@@ -31,6 +31,7 @@ class DatabaseManager:
         except Exception as e:
             print(f"Error while connecting to MySQL: {str(e)}")
             return None
+        return None
     @staticmethod
     def insert(stmt):
         """Inserts a new record into the users table."""
