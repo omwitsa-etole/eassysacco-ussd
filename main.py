@@ -98,15 +98,15 @@ async def daraja():
         session["access_token"] = None
     return json.dumps(response)
 
-@app.route('/', methods=['POST', 'GET'])
+@app.route('/', methods=['POST','GET'])
 async def ussd_callback():
     response = ''
     #print("request",request.values)
-    session_id = request.values.get("session_id", None)
-    service_code = request.values.get("service_code", None)
+    session_id = request.json.get("session_id", None)
+    service_code = request.json.get("service_code", None)
     #phone_number = request.values.get("phoneNumber", None)
-    text = request.values.get("ussd_string", "default")
-    text = request.values.get('ussd_string', '').strip()
+    text = request.json.get("ussd_string", "default")
+    text = request.json.get('ussd_string', '').strip()
     
     text_array = text.split('*')
     
