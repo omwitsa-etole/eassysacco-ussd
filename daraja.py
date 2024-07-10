@@ -1,11 +1,11 @@
 import payment
 
-payment.SHORT_CODE = "174379"
-payment.PASSKEY = "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919"
+payment.SHORT_CODE = "3009751"
+payment.PASSKEY = "a7921.222Z"#"bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919"
 payment.CONSUMER_SECRET = "ptuHYmqLZiZkEIAR"
 payment.CONSUMER_KEY = "vtC1syqw3OVAnCguu6FJArG9eNa8u2ZC"
 payment.ACCOUNT_TYPE = "PAYBILL"  # Set to TILL to use BuyGoods instead of Pay Bill
-payment.APP_USERNAME = "Testapi772"
+payment.APP_USERNAME = "amtechaf"
 
 async def stk(data,token):
 	details = await payment.trigger_stk_push(phone_number=data['phone'], amount=data['amount'], callback_url=data['callback'],

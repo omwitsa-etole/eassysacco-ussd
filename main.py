@@ -102,11 +102,11 @@ async def daraja():
 async def ussd_callback():
     response = ''
     #print("request",request.values)
-    session_id = request.values.get("sessionId", None)
-    service_code = request.values.get("serviceCode", None)
-    phone_number = request.values.get("phoneNumber", None)
-    text = request.values.get("text", "default")
-    text = request.values.get('text', '').strip()
+    session_id = request.values.get("session_id", None)
+    service_code = request.values.get("service_code", None)
+    #phone_number = request.values.get("phoneNumber", None)
+    text = request.values.get("ussd_string", "default")
+    text = request.values.get('ussd_string', '').strip()
     
     text_array = text.split('*')
     
