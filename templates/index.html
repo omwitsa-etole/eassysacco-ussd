@@ -22,7 +22,7 @@
                 text-align: center;
                 place-items: center;
             }
-            .main .container .row{
+            .main-actions{
                 width: 100%;
                 display:flex;
                 flex-direction: row;
@@ -53,7 +53,7 @@
                 background: white;
                 z-index: 99;
                 min-width: 450px;
-                min-height: 548px;
+                min-height: 448px;
                 border-radius: 9px;
                 box-shadow: rgba(0, 0, 0, 0.25) 0px 54px 55px, rgba(0, 0, 0, 0.12) 0px -12px 30px, rgba(0, 0, 0, 0.12) 0px 4px 6px, rgba(0, 0, 0, 0.17) 0px 12px 13px, rgba(0, 0, 0, 0.09) 0px -3px 5px;
                 transform: translate(-50%,-50%);
@@ -85,10 +85,15 @@
             <div class="container">
                 <div class="row">
                     {%if action%}
+                        <style>body {
+                            background: rgba(221, 221, 221, 0.9);
+                            
+                            overflow: hidden; 
+                        }.main-actions{pointer-events: none;}</style>
                         <div class="col-md hover">
                             <a style="float:right;" href="/home">&times</a>
                             <h3>{{selected["name"]|upper}}</h3><hr/>
-                            <section style="overflow-y: auto;overflow-x: scroll;">
+                            <section style="height: 78%;overflow-y: scroll;overflow-x: auto;">
                                 <form onsubmit="return false" id="data-form">
                                 <input type="hidden" name="action" value="{{selected['name']}}">
                                 {%for data in selected["data"]%}
@@ -100,6 +105,7 @@
                             <button onclick="simulateRequest()">Submit</button>
                         </div>
                     {%endif%}
+                    <section class="main-actions">
                     {%for action in actions%}
                         <div id='{{action["name"]}}' class="col-sm">
                             <h4>{{action["description"]}}</h4>
@@ -107,6 +113,7 @@
                             <button onclick='location.search="action={{action['name']}}"'>Select</button>
                         </div>
                     {%endfor%}
+                    </section>
                 </div>
               </div>
         </div>
