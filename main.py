@@ -111,13 +111,13 @@ async def ussd_callback():
     text_array = text.split('*')
     
     text_array = replace_and_slice(text_array)
-    if len(text_array) > 1 and text_array[0] == '':
+    if len(text_array) > 1 and text_array[0] == '101':
         text_array = text_array[1:]
 
     print("text",text_array)
     if len(text_array) >= 1 and text_array[-1] == 'q':
         return 'END Completed Session.\n'
-    if text == "" or text_array[0] == '':
+    if text == "" or text_array[0] == '101':
         if session.get("user") != None:
             text_array[0] = '2'
             text_array[1] = session['user']['IDNo']
