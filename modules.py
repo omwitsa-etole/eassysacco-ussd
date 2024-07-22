@@ -49,6 +49,16 @@ class Contrib:
             'member_no':member_no
         }
 
+class API:
+    @staticmethod
+    async def find(app_id):
+        result = await DatabaseManager.query(f"select ID,CompanyCode,Label,ShortCode,ApiUser,ApiPassword,PassKey from ApiTable where ID='%s'"%(app_id))
+        if result == None or len(result) == 0:
+            return None
+        result = result[0]
+        api = APIModel(Id=result[0],CompanyCode=result[1],Label=result[2],ShortCode=str(result[3]),ApiUser=result[4],ApiPassword=result[5],PassKey=result[6])
+        return api.get()
+
 class Shares:
     @staticmethod
     async def my_shares(user):

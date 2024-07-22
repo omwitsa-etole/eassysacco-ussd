@@ -24,7 +24,7 @@ def home():
         {"name":"stk-query","data":["checkout_id"],"description":"Query the status of a transaction inititated by stk push"},
         {"name":"account-balance","data":["result_url"],"description":"Request account balance of your account"},
         {"name":"transaction-status","data":["transaction_id","result_url"],"description":"Query the status of a lipa na mpesa transaction"},
-        {"name":"b2c","data":["result_url","amount","remarks","occasion","phone"],"description":"Initiate a business to customer checkout to transfer funds"},
+        {"name":"b2c","data":["result_url","amount","remarks","occassion","phone"],"description":"Initiate a business to customer checkout to transfer funds"},
         {"name":"b2b","data":["result_url","amount","remarks","reference","reciever"],"description":"Initiate a business to bussiness transfer of funds"}
     ]
     selected = None
@@ -55,7 +55,14 @@ async def daraja():
     #    access_token["time"] = None
     data = request.json
     action = data.get("action")
-    print("action",action)
+    app_id = data.get("app_id")
+    if app_id != None:
+        app = await API.find(app_id)
+        if app == None:
+            return json.dumps({"message":"App not found","success":False})
+    else:
+        return json.dumps({"message":"App not specified","success":False})
+    print("action",action,app)
     if action == None:
         return json.dumps({"success":True,"access_token":session["access_token"]["access_token"]})
     elif action == "stk-push":
@@ -63,22 +70,26 @@ async def daraja():
             {"phone":data.get("phone"),"amount":data.get("amount"),
             "callback":data.get("callback"),"description":data.get("description"),
             "reference":data.get("reference")
-            },token=session["access_token"]["access_token"]
+            },token=session["access_token"]["access_token"],
+            app = app
         )
     elif action == "stk-query":
         response = await query(
             {"checkout_id":data.get("checkout_id")},
-            token = session["access_token"]["access_token"]
+            token = session["access_token"]["access_token"],
+            app = app
         )
     elif action == "account-balance":
         response = await account_balance(
             {"result_url":data.get("result_url")},
-            token=session["access_token"]["access_token"]
+            token=session["access_token"]["access_token"],
+            app = app
         )
 
     elif action == "transaction-status":
         response = await trans_query({"transaction_id":data.get('transaction_id'),"result_url":data.get('result_url')},
-            token=session["access_token"]["access_token"]
+            token=session["access_token"]["access_token"],
+            app = app
         )
 
     elif action == "b2c":
@@ -86,13 +97,13 @@ async def daraja():
             "result_url":data.get("result_url"),"amount":data.get("amount"),
             "remarks":data.get("remarks"),"occassion":data.get("occassion"),
             "phone":data.get("phone")
-        },token=session["access_token"]["access_token"])
+        },token=session["access_token"]["access_token"],app = app)
     elif action == "b2b":
         response = await b2b({
             "result_url":data.get("result_url"),"amount":data.get("amount"),
             "remarks":data.get("remarks"),"reference":data.get("reference"),
             "reciever":data.get("reciever")
-        },token=session["access_token"]["access_token"])
+        },token=session["access_token"]["access_token"],app = app)
     if 'Invalid Access Token' in str(response.get('message')):
         print("response",response.get("message"))
         session["access_token"] = None
@@ -281,5 +292,5 @@ async def ussd_callback():
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 80))
     app.run(host="0.0.0.0", port=port,debug=True )

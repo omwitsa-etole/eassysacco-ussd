@@ -1,5 +1,9 @@
 import pyodbc
 
+#server = '192.250.225.16'
+#database = 'BOSA'
+#username = 'xkWMBPbPn8vbNG4T'
+#password = 'xkWMBPbPn8vbNG4T'
 server = 'DESKTOP-EQQ552C\\MSSQLSERVER01'
 database = 'BOSA'
 username = 'your_username'

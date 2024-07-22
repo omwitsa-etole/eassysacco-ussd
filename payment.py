@@ -7,6 +7,11 @@ from Crypto.PublicKey import RSA
 from Crypto.Signature import pkcs1_15
 from Crypto.Cipher import PKCS1_v1_5
 from Crypto.Hash import SHA256
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization,hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
+from cryptography.x509 import load_pem_x509_certificate
 
 CONSUMER_KEY: str = ""
 CONSUMER_SECRET: str = ""
@@ -14,7 +19,8 @@ PASSKEY: str = ""
 SHORT_CODE: str = ""
 ACCOUNT_TYPE: str = ""
 APP_USERNAME:str = ""
-CERT = 'SandboxCertificate.cer'
+PASSWORD:str = ""
+CERT = 'ProductionCertificate.cer'
 def _get_trans_type():
     if ACCOUNT_TYPE == "PAYBILL":
         trans_type = "CustomerPayBillOnline"
@@ -29,12 +35,23 @@ def generate_id():
 def generate_signed_token(private_key_path,password):
     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     with open(private_key_path, 'r') as key_file:
-        public_key = RSA.import_key(key_file.read())
+        public_key = key_file.read()
 
-    cipher_rsa = PKCS1_v1_5.new(public_key)
-    encrypted_password = cipher_rsa.encrypt(password.encode('utf-8'))
-    security_credential = base64.b64encode(encrypted_password).decode('utf-8')
-
+    #cipher_rsa = PKCS1_v1_5.new(public_key)
+    #encrypted_password = cipher_rsa.encrypt(password.encode('utf-8'))
+    #security_credential = base64.b64encode(encrypted_password).decode('utf-8')
+    certificate = load_pem_x509_certificate(public_key.encode(), backend=default_backend())
+    public_key = certificate.public_key()
+    encrypted = public_key.encrypt(
+        password,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    security_credential = base64.b64encode(encrypted).decode('utf-8')
+    #print("credential",security_credential)
     return [security_credential,timestamp]
 
 def _get_password():
@@ -128,19 +145,19 @@ async def query_balance(result_url,token) -> dict:
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {token}'
     }
-    pwd = generate_signed_token(CERT,PASSKEY)
+    pwd = generate_signed_token(CERT,PASSWORD)
     payload = {
         "SecurityCredential": pwd[0],
         "Initiator": APP_USERNAME,
         "Remarks": "account-balance",
         "QueueTimeOutURL": result_url,
         "ResultURL": result_url,
-        "BusinessShortCode": int(SHORT_CODE),
+        #"BusinessShortCode": int(SHORT_CODE),
         #"Password": pwd[0],
         "Timestamp": ""+str(pwd[1]),
         "CommandID": "AccountBalance",
         "IdentifierType": "4",
-        "PartyA": SHORT_CODE,
+        "PartyA": int(SHORT_CODE),
     }
    
     response = requests.request("POST", 'https://sandbox.safaricom.co.ke/mpesa/accountbalance/v1/query', headers=headers,
@@ -192,11 +209,13 @@ async def business_to_customer(data,token) -> dict:
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {token}'
     }
-    pwd = generate_signed_token(CERT,PASSKEY)
+    pwd = generate_signed_token(CERT,PASSWORD)
+    
+    #pwd = _get_password()
     payload = {
-        "OriginatorConversationID": generate_id(),
+        #"OriginatorConversationID": generate_id(),
         "BusinessShortCode": ""+str(int(SHORT_CODE)),
-        "Password": pwd[0],
+        #"Password": PASSKEY,
         "Timestamp": ""+str(pwd[1]),
         "InitiatorName": APP_USERNAME,
         "SecurityCredential": pwd[0],
@@ -209,7 +228,7 @@ async def business_to_customer(data,token) -> dict:
         "ResultURL": data["result_url"],
         "Occasion": data["occassion"]
     }
-
+    #print(json.dumps(payload))
     response = requests.request("POST", 'https://sandbox.safaricom.co.ke/mpesa/b2c/v1/paymentrequest',
                                 headers=headers, data=json.dumps(payload))
     if response.status_code >= 200 and response.status_code < 300:
@@ -225,7 +244,8 @@ async def business_to_business(data,token) -> dict:
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {token}'
     }
-    pwd = generate_signed_token(CERT,PASSKEY)
+    #pwd = generate_signed_token(CERT,PASWORD)
+    pwd = _get_password()
     payload = {
         "RequestRefID": generate_id(),
         "BusinessShortCode": ""+str(int(SHORT_CODE)),
