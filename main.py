@@ -9,8 +9,6 @@ if hasattr(sys, '_MEIPASS'):
 else:
     base_path = os.path.dirname(__file__)
 
-# Optionally, you can set the working directory to the base path
-os.chdir(base_path)
 
 from modules import *
 from models import * 
@@ -160,11 +158,12 @@ def send_text():
         Text.get_code(phone,code=data.get("message"))
     return jsonify({"success":True})
 
-    
+
 @app.route('/', methods=['POST','GET'])
 async def ussd_callback():
     global user_state
     response = ''
+    #text = request.args.get("text")
     text = request.args.get("text")
     session_id = request.args.get("session_id")
     #print("request",request.values)
@@ -179,7 +178,7 @@ async def ussd_callback():
     text_array = text.split('*')
     if session_id not in user_state:
         user_state[session_id] = {}
-        if text_array[0] == '101':
+        if text_array[0] == '101' or text_array[0] == '':
             user_state[session_id]["current_array"] = ['']
             text_array[0] = ''
     
@@ -226,18 +225,18 @@ async def ussd_callback():
             return response
     
     
-    print("text=>",user_state[session_id]["current_array"],user_state[session_id]["current_state"])
-    if len(text_array) > 1 and text_array[0] == '' or len(text_array) > 1 and text_array[0] == '101':
+    print("text=>",user_state[session_id]["current_array"],text_array)
+    if len(text_array) >= 1 and text_array[0] == '' or len(text_array) >= 1 and text_array[0] == '101':
         text_array = text_array[1:]
     if len(text_array) == 1 and text_array[0] == '1':
         text_array[0] = "1.1"
         
-    elif len(text_array) == 1 and text_array[0] == '2':
+    elif len(text_array) >= 1 and text_array[0] == '2':
         text_array[0] = "2.1"
     
     #if user_state[session_id]["current_state"] == '1':#text_array[0] == '1':
     #    response = await registerMember(text_array)
-    if text_array[0] == '1.1':
+    if len(text_array) == 1 and text_array[0] == '1.1':
         response = main_menu()
         return response
     #elif text_array[0] == "2.1":
@@ -254,7 +253,7 @@ async def ussd_callback():
     if text_array[0] == '1':
         if len(text_array) > 2 and text_array[1] != '2':
             if user_state[session_id].get('user') == None:
-                member = await Members.login(text_array[1]) 
+                member = await Members.login(text_array[2]) 
                 if member == None:
                     response = nouser()
                     return response
@@ -277,7 +276,7 @@ async def ussd_callback():
                 user_state[session_id]['user'] = member
             else:
                 member = user_state[session_id]['user']
-                
+            print("pin",user_state[session_id]['user']['PIN'])  
             if user_state[session_id]['user']['PIN'] != '' and user_state[session_id]['user']['PIN'] != None:
                 response = 'CON Enter PIN\n'
             else:
@@ -416,4 +415,4 @@ async def ussd_callback():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8081))
-    app.run(host="0.0.0.0", port=port,debug=True )
+    app.run(host="0.0.0.0", port=port )

@@ -1,6 +1,17 @@
 from db import DatabaseManager
 from models import *
 from modules import *
+from datetime import datetime
+
+def format_value(value):
+    if isinstance(value, datetime):
+        return f"'{value.strftime('%Y-%m-%d %H:%M:%S')}'"
+    elif value == 'null':
+        return 'NULL'
+    elif isinstance(value, str):
+        return f"'{value}'"
+    else:
+        return str(value)
 
 class Companies:
     @staticmethod
@@ -82,22 +93,53 @@ class Shares:
 
     @staticmethod
     async def find(code):
-        shares = await DatabaseManager.query(f"select * from sharetype where CompanyCode='%s'"%(code))
-        if shares and len(shares) > 0:
-            shares = shares[0]
-            shares = Share(
-                SharesCode = shares[0],
-                SharesType = shares[1],LoanToShareRatio = shares[4],
-                Issharescapital = shares[5],Interest = shares[6],
-                CompanyCode = shares[7],MaxAmount = shares[8],
-                MinAmount = shares[-4]
-            )
-            shares = shares.get()
+        results = []
+        query = await DatabaseManager.query(f"select * from sharetype where CompanyCode='%s'"%(code))
+        if query and len(query) > 0:
+            for shares in query:
+                #shares = shares[0]
+                shares = Share(
+                    SharesCode = shares[0],
+                    SharesType = shares[1],LoanToShareRatio = shares[4],
+                    Issharescapital = shares[5],Interest = shares[6],
+                    CompanyCode = shares[7],MaxAmount = shares[8],
+                    MinAmount = shares[-4]
+                )
+                shares = shares.get()
+                results.append(shares)
         else:
-            shares = None
-        return shares
-
+            return results
+        return results
+        
+    @staticmethod
+    async def add(receipt=None,shareType=None,transaction_mode=None,memberNo=None,amount=0,reference=None,agent=None):
+        if memberNo == None or agent == None:
+            return None
+        query = await DatabaseManager.query(f"select * from members where MemberNo='%s' and CompanyCode='%s'"%(memberNo,agent["CompanyCode"]))
+        if query == None or len(query) == 0:
+            return None
+        member = query[0][0]
+        member = await Members.login(member)
+        c = Contribution(MemberNo=member["MemberNo"],Amount=amount,ContrDate=datetime.today(),DepositedDate=datetime.today(),
+             CompanyCode = member["CompanyCode"],SharesCode = shareType["SharesCode"],RefNo=reference,ShareBal=amount,TransBy=transaction_mode,
+             ChequeNo=reference,ReceiptNo=receipt,TransactionNo="")
+             
+        print("contribution",c.get())
+        data = c.get()
+        keys = ', '.join(data.keys())
+        values = ', '.join(format_value(value) for value in data.values())
+        print(f"INSERT INTO CONTRIB ({keys}) VALUES ({values})")
+        result = DatabaseManager.insert(f"INSERT INTO CONTRIB ({keys}) VALUES ({values})")
+        if result and result == True:
+            return True
+        return None
 class Loans:
+    @staticmethod
+    async def update(loan,status):
+        result = DatabaseManager.update(f"update LOANS set status='%s' where MemberNo='%s' and CompanyCode='%s' and LoanNo='%s'"%(status,loan['MemberNo'],loan['CompanyCode'],loan['LoanNo']))
+        if result and result == True:
+            return True
+        return None
     @staticmethod
     async def delete(loan,user):
         result = DatabaseManager.update(f"update LOANS set status=0 where MemberNo='%s' and CompanyCode='%s' and LoanNo='%s'"%(user['MemberNo'],user['CompanyCode'],loan['LoanNo']))
@@ -165,7 +207,22 @@ class Loans:
         if new and new == True:
             return True
         return None
-
+    @staticmethod
+    async def find_all(company_code):
+        result = await DatabaseManager.query(f"select * from LOANS where CompanyCode='%s' "%(company_code))
+        if result == None or len(result) == 0:
+            return []
+        loans = []
+        for loan in result:
+            l = LoanBal(id=loan[0],LoanNo=loan[1],
+                MemberNo = loan[2],LoanCode = loan[3],
+                ApplicDate=loan[4],LoanAmt=loan[5],
+                RepayPeriod = loan[6],CompanyCode=loan[10],
+                IdNo=loan[11],Interest=loan[36],
+                Status=loan[38]
+            )
+            loans.append(l.get())
+        return loans
 class Guarantors:
     @staticmethod
     async def find(user):

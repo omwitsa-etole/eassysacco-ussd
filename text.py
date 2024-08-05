@@ -5,8 +5,8 @@ import smtplib, ssl
 import os
 from twilio.rest import Client
 class Text:
-    SID = ""
-    TOKEN = ""
+    SID = "1234"
+    TOKEN = "1234"
     TWILIO_NUMBER = "+19786072862"
     client = Client(SID,TOKEN)
 

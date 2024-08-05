@@ -87,14 +87,284 @@ async def Agent_menu(text_array,initial=0,session_id=None):
     global user_state
     agent = user_state[session_id].get("agent")
     response = f"CON Agent: {agent["Names"]}"
+    
     if len(text_array) > initial:
         if text_array[initial] == "1":
             response = await registerMember(text_array[initial:],session_id=session_id)
+        elif text_array[initial] == "2":
+            response = await agentShares(text_array[initial:],session_id=session_id)
+        elif text_array[initial] == "3":
+            response = await agentLoans(text_array[initial:],session_id=session_id)
+            return response
         else:
             response += "\nNot yet available.\n"
     else:
         response += "\n1.Register Member\n"
-        response += "2.Reset Password\n"
+        response += "2.Shares\n"
+        response += "3.Loans\n"
+    return response
+    
+async def agentLoans(text_array,session_id=None,initial=1):
+    response = "CON Manage Loans\n"
+    global user_state
+    agent = user_state[session_id]["agent"]
+    print("menu",text_array,initial)
+    if len(text_array) == initial:
+        response += "1.Pending Loans\n2.Disbursed Loans\n3.Other Loans\n"
+    else:
+        status = {0:'Deleted',1:"Applied",2:"Guarantors",3:"Endorsements",4:"Disbursed"}
+        if agent.get("all_loans") == None:
+            loans = await Loans.find_all(agent["CompanyCode"])
+            user_state[session_id]["agent"]["all_loans"] = loans
+        else:
+            loans = user_state[session_id]["agent"]["all_loans"]
+        if text_array[1] == "1":
+            if len(text_array) == initial+1:
+                ind = 0
+                response += "select Loan to process\n"
+                for loan in loans:
+                    if status[int(loan['Status'])] == "Applied":
+                        if ind > 10:
+                            break
+                        ind += 1
+                        response += f"{ind}. Loan {loan['LoanNo']} - {float(loan['LoanAmt'])} @ {float(loan['Interest'])}% ({loan['MemberNo']}) \n"
+            elif len(text_array) == initial+2:
+                selected = text_array[initial+1]
+                if not is_integer(selected):
+                    response += "Invalid Input\n"
+                    return response
+                found = 0
+                ind = 0
+                print("selected",selected)
+                for loan in loans:
+                    if status[int(loan['Status'])] == "Applied":
+                        ind += 1
+                        print(ind,selected)
+                        if ind == int(selected):
+                            selected = loan
+                            found = 1
+                            break
+                if found == 0:
+                    response += "Could not find selected Loan\n"
+                    return response
+                current_loan = selected
+                
+                user_state[session_id]["agent"]["current_loan"] = current_loan
+                response = f'CON Viewing Loan {current_loan['LoanNo']}.\n'
+                response += f'Applied Amount : {float(current_loan['LoanAmt'])}.\nApplied Date : {current_loan['ApplicDate']}.\n'
+                response += f'Interest on Loan : {float(current_loan['Interest'])}%.\nRepayment Period : {int(current_loan['RepayPeriod'])} Months.\n'
+                response += f'Loan Status : {status[int(loan['Status'])]}.\n'
+                response += "1.Update Status\n" 
+            elif len(text_array) == initial+3:
+                if text_array[initial+2] != "1":
+                    response += "\nInvalid Input\n"
+                    return response
+                current_loan = user_state[session_id]["agent"]["current_loan"]
+                response += f"Current Status : {status[int(current_loan['Status'])]}\n"
+                response += "Select New status\n"
+                for key, value in status.items():
+                    #print(f"Key: {key}, Value: {value}")
+                    response += f"{key}. {value}\n"
+            elif len(text_array) == initial+4:    
+                new_status = text_array[initial+3]
+                if not is_integer(new_status):
+                    response += "Invalid Input\n"
+                    return response
+                new_status = int(new_status)
+                #new_status = status[new_status]
+                current_loan = user_state[session_id]["agent"]["current_loan"]
+                response += f"The Loan -  {current_loan['LoanNo']} will be updated to a new status of { status[new_status]}\n"
+                response += f"1.Confirm\n2.Cancel\n"
+            elif len(text_array) == initial+5:    
+                num = text_array[initial+4]
+                new_status = text_array[initial+3]
+                new_status = int(new_status)
+                if num != "1":
+                    response += "The Process has been cancelled\n"
+                    return response
+                current_loan = user_state[session_id]["agent"]["current_loan"]
+                result = await Loans.update(current_loan,new_status)
+                if result and result == True:
+                    response += "The Loan has been successfully updated\n"
+                else:
+                    response += "An error occured during loan processing, try again later\n"
+            else:
+                response += "Invalid Input, Session ended\n"
+        elif text_array[1] == "2":
+            if len(text_array) == initial+1:
+                ind = 0
+                response += "select Loan to view\n"
+                for loan in loans:
+                    if status[int(loan['Status'])] == "Disbursed":
+                        if ind > 10:
+                            break
+                        ind += 1
+                        response += f"{ind}. Loan {loan['LoanNo']} - {float(loan['LoanAmt'])} @ {float(loan['Interest'])}% ({loan['MemberNo']}) \n"
+            elif len(text_array) == initial+2:
+                selected = text_array[initial+1]
+                if not is_integer(selected):
+                    response += "Invalid Input\n"
+                    return response
+                found = 0
+                ind = 0
+                for loan in loans:
+                    
+                    if status[int(loan['Status'])] == "Applied":
+                        ind += 1
+                        if ind == int(selected):
+                            selected = loan
+                            found = 1
+                            break
+                if found == 0:
+                    response += "Could not find selected Loan\n"
+                    return response
+                current_loan = selected
+                
+                user_state[session_id]["agent"]["current_loan"] = current_loan
+                response = f'CON Viewing Loan {current_loan['LoanNo']}.\n'
+                response += f'Applied Amount : {float(current_loan['LoanAmt'])}.\nApplied Date : {current_loan['ApplicDate']}.\n'
+                response += f'Interest on Loan : {float(current_loan['Interest'])}%.\nRepayment Period : {int(current_loan['RepayPeriod'])} Months.\n'
+                response += f'Loan Status : {status[int(loan['Status'])]}.\n'
+                #response += "1.Update Status\n" 
+            else:
+                response += "Invalid Input, Session ended\n"
+        elif text_array[1] == "3":
+            if len(text_array) == initial+1:
+                ind = 0
+                response += "select Loan to view\n"
+                for loan in loans:
+                    if status[int(loan['Status'])] != "Disbursed" and status[int(loan['Status'])] != "Applied":
+                        if ind > 10:
+                            break
+                        ind += 1
+                        response += f"{ind}. Loan {loan['LoanNo']} - {float(loan['LoanAmt'])} @ {float(loan['Interest'])}% ({loan['MemberNo']}) ({status[int(loan['Status'])]}) \n"
+            elif len(text_array) == initial+2:
+                selected = text_array[initial+1]
+                if not is_integer(selected):
+                    response += "Invalid Input\n"
+                    return response
+                found = 0
+                ind = 0
+                for loan in loans:
+                    
+                    if status[int(loan['Status'])] != "Disbursed" and status[int(loan['Status'])] != "Applied":
+                        ind += 1
+                        if ind == int(selected):
+                            selected = loan
+                            found = 1
+                            break
+                if found == 0:
+                    response += "Could not find selected Loan\n"
+                    return response
+                current_loan = selected
+                
+                user_state[session_id]["agent"]["current_loan"] = current_loan
+                response = f'CON Viewing Loan {current_loan['LoanNo']}.\n'
+                response += f'Applied Amount : {float(current_loan['LoanAmt'])}.\nApplied Date : {current_loan['ApplicDate']}.\n'
+                response += f'Interest on Loan : {float(current_loan['Interest'])}%.\nRepayment Period : {int(current_loan['RepayPeriod'])} Months.\n'
+                response += f'Loan Status : {status[int(loan['Status'])]}.\n'
+                response += "1.Update Status\n" 
+            elif len(text_array) == initial+3:
+                if text_array[initial+2] != "1":
+                    response += "\nInvalid Input\n"
+                    return response
+                current_loan = user_state[session_id]["agent"]["current_loan"]
+                response += f"Current Status : {status[int(current_loan['Status'])]}\n"
+                response += "Select New status\n"
+                for key, value in status.items():
+                    #print(f"Key: {key}, Value: {value}")
+                    response += f"{key}. {value}\n"
+            elif len(text_array) == initial+4:    
+                new_status = text_array[initial+3]
+                if not is_integer(new_status):
+                    response += "Invalid Input\n"
+                    return response
+                new_status = int(new_status)
+                #new_status = status[new_status]
+                current_loan = user_state[session_id]["agent"]["current_loan"]
+                response += f"The Loan -  {current_loan['LoanNo']} will be updated to a new status of { status[new_status]}\n"
+                response += f"1.Confirm\n2.Cancel\n"
+            elif len(text_array) == initial+5:    
+                num = text_array[initial+4]
+                new_status = text_array[initial+3]
+                new_status = int(new_status)
+                if num != "1":
+                    response += "The Process has been cancelled\n"
+                    return response
+                current_loan = user_state[session_id]["agent"]["current_loan"]
+                result = await Loans.update(current_loan,new_status)
+                if result and result == True:
+                    response += "The Loan has been successfully updated\n"
+                else:
+                    response += "An error occured during loan processing, try again later\n"
+            else:
+                response += "Invalid Input, Session ended\n"
+    return response
+async def agentShares(text_array,session_id=None,initial=1):
+    response = "CON Manage Shares\n"
+    global user_state
+    agent = user_state[session_id]["agent"]
+    if len(text_array) == initial:
+        response += "1.Add Shares\n"
+    else:
+        print("shares",text_array)
+        if text_array[1] == "1":
+            if len(text_array) == initial+1:
+                response += "Enter Member No\n"
+            if len(text_array) == initial+2:
+                response += "Enter Amount\n"
+            if len(text_array) == initial+3:
+                response += "Enter reference\n"
+            if len(text_array) == initial+4:
+                if agent.get("shareTypes") == None:
+                    shareTypes = await Shares.find(agent["CompanyCode"])
+                    user_state[session_id]["agent"]["ShareTypes"] = shareTypes
+                    
+                else:
+                    shareTypes = agent["ShareTypes"]
+                response += "Select Share Type.\n"
+                ind = 0
+                #print("types",shareTypes)
+                for types in shareTypes:
+                    ind += 1
+                    response += f"{ind}.{types["SharesType"]}-{types["SharesCode"]}\n"
+            if len(text_array) == initial+5:
+                response += "Select Transaction Mode\n"
+                response += "1.Receipt-Bank Deposit\n2.Receipt-Mobi Cash\n3.Receipt Mpesa\n"
+            if len(text_array) == initial+6:
+                response += "Enter Receipt No\n"
+            if len(text_array) > initial+6:
+                transaction_mode = int(text_array[initial+5])
+                if transaction_mode == 1:
+                    transaction_mode = "Receipt-Bank Deposit"
+                elif transaction_mode == 2:
+                    transaction_mode = "Receipt-Mobi Cash"
+                else:
+                    transaction_mode = "Receipt-Mpesa"
+                memberNo = text_array[initial+1]
+                amount = text_array[initial+2]
+                reference = text_array[initial+3]
+                receipt = text_array[initial+6]
+                if agent.get("shareTypes") == None:
+                    types = await Shares.find(agent["CompanyCode"])
+                    user_state[session_id]["agent"]["ShareTypes"] = types
+                    
+                else:
+                    types = agent["ShareTypes"]
+                #types = user_state[session_id]["agent"]["ShareTypes"]
+                if not is_integer(text_array[initial+4]) or int(text_array[initial+4]) > len(types):
+                    response += "\nInvalid Input.\n"
+                    return response
+                
+                shareType = types[int(text_array[initial+4])]
+                
+                result = await Shares.add(receipt=receipt,transaction_mode=transaction_mode,shareType=shareType,memberNo=memberNo,amount=amount,reference=reference,agent=agent)
+                if result and result == True:
+                    response += "Successfully added shares for member\n"
+                else:
+                    response += "An error occured during the transaction\n"
+            #else:
+            #    response += "Invalid Input, Session ended\n"
     return response
 async def admin_home(text_array,initial = 1,session_id=None):
     response = "CON COMPANY"
@@ -448,6 +718,7 @@ def Enquiries(text_array):
     return response
 
 async def loanApplication(text_array,initial=0,user=None,session_id=None):
+    #print("user=>",user)
     member_loan = await Members.loan(user)
     member_bal = await Members.loanBal(user)
     if member_loan == None:
@@ -509,7 +780,7 @@ async def loanApplication(text_array,initial=0,user=None,session_id=None):
                 return response
             selected_type = int(text_array[initial-2])
             selected_type = loan_types[selected_type-1]
-            if text_array[-1] == '1':
+            if text_array[-2] == '1':
                 next_no = await Loans.get_next(user,selected_type)
                 new_loan = Loan(
                     LoanNo = next_no['LoanNo'],
