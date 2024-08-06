@@ -183,6 +183,12 @@ async def agentLoans(text_array,session_id=None,initial=1):
                     response += "The Process has been cancelled\n"
                     return response
                 current_loan = user_state[session_id]["agent"]["current_loan"]
+                print("status",new_status)
+                if new_status == 4:
+                    loan_bal = await Loans.add_loan(current_loan)
+                if loan_bal == None:
+                    response += "Failed to add Loan, tyr again later\n"
+                    return response
                 result = await Loans.update(current_loan,new_status)
                 if result and result == True:
                     response += "The Loan has been successfully updated\n"
@@ -292,6 +298,13 @@ async def agentLoans(text_array,session_id=None,initial=1):
                     response += "The Process has been cancelled\n"
                     return response
                 current_loan = user_state[session_id]["agent"]["current_loan"]
+                loan_bal = None
+                print("status",new_status)
+                if new_status == 4:
+                    loan_bal = await Loans.add_loan(current_loan)
+                if loan_bal == None:
+                    response += "Failed to add Loan, tyr again later\n"
+                    return response
                 result = await Loans.update(current_loan,new_status)
                 if result and result == True:
                     response += "The Loan has been successfully updated\n"
@@ -775,9 +788,10 @@ async def loanApplication(text_array,initial=0,user=None,session_id=None):
         if len(text_array) - initial == 3:
             response += '\nEnter Loan Repayment Period in Months\n#.previous Menu\nq.Exit'
         if len(text_array) - initial == 4:
-            if is_integer(text_array[initial-3]) == False:
+            if is_integer(text_array[initial+3]) == False:
                 response += '\nInvalid  Repayment Period in Months\n#.previous Menu\nq.Exit'
                 return response
+            print("period",text_array[initial+3])
             selected_type = int(text_array[initial-2])
             selected_type = loan_types[selected_type-1]
             if text_array[-2] == '1':
@@ -788,7 +802,7 @@ async def loanApplication(text_array,initial=0,user=None,session_id=None):
                     LoanCode = selected_type['LoanCode'],
                     CompanyCode = selected_type['CompanyCode'],
                     Status = 1,MemberNo = user['MemberNo'],
-                    RepayPeriod = int(text_array[initial-3]),
+                    RepayPeriod = int(text_array[initial+3]),
                     IdNo = user['IDNo'],
                     Interest = selected_type['Interest'],
                     id = next_no['id']

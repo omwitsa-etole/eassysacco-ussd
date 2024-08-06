@@ -2,6 +2,7 @@ from db import DatabaseManager
 from models import *
 from modules import *
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 def format_value(value):
     if isinstance(value, datetime):
@@ -198,6 +199,17 @@ class Loans:
         else:
             loan_no = query[1]+"-1"
         return {'LoanNo':loan_no,'id': int(query[0])+1}
+        
+    @staticmethod
+    async def add_loan(loan,repay_method='RBAL',trans_no='null'):
+        current_date = datetime.now()
+        duedate = current_date+relativedelta(months=loan['RepayPeriod'])
+        year = current_date.year
+        month = current_date.month
+        query = DatabaseManager.insert(f"insert into LOANBAL (LoanNo,LoanCode,MemberNo,Balance,RepayRate,duedate,Interest,Companycode,RepayMethod,RepayPeriod,TransactionNo,Year,Month,FirstDate,LastDate,Defaulter) values('%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s')"%(loan['LoanNo'],loan['LoanCode'],loan['MemberNo'],loan['LoanAmt'],loan['Interest'],duedate.strftime('%Y-%m-%d %H:%M:%S'),loan['Interest'],loan['CompanyCode'],repay_method,loan['RepayPeriod'],trans_no,year,month,duedate.strftime('%Y-%m-%d %H:%M:%S'),duedate.strftime('%Y-%m-%d %H:%M:%S'),0))
+        if query and query == True:
+            return True
+        return None
     @staticmethod
     async def add(loan):
         query = await DatabaseManager.query(f"select * from LOANS where LoanNo='%s' and CompanyCode='%s'"%(loan['LoanCode'],loan['CompanyCode']))
