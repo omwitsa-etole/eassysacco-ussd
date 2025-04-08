@@ -312,7 +312,7 @@ async def ussd_callback():
             if text_array[4] == '1':
                 total_percent = await Beneficiaries.get_percent(user_state[session_id]['user'])
                 if total_percent >= 100:
-                    response = f'CON Can not add Beneficiary, Total assigned percentage {total_percent}.\n#.Previous Menu\n'
+                    response = f"CON Can not add Beneficiary, Total assigned percentage {total_percent}.\n#.Previous Menu\n"
                     return response
                 response = await addBeneficiary(text_array[1:],user=user_state[session_id]['user'],session_id=session_id,total=total_percent)
 
@@ -323,7 +323,7 @@ async def ussd_callback():
                     index = 0
                     for bn in beneficiaries:
                         index += 1
-                        response += f'{index}.{bn['KinNames']} - {bn['IDNo']} ({bn['Percentage']})%\n' 
+                        response += f"{index}.{bn['KinNames']} - {bn['IDNo']} ({bn['Percentage']})%\n" 
                     response += '\n'
                     response += '# Previous Menu\n00.Main Menu\n'
                 
@@ -391,10 +391,10 @@ async def ussd_callback():
                     response = await MemberWithdrawal(text_array[1:],initial=4,user=user_state[session_id]['user'],session_id=session_id)
             elif text_array[4] == '6':
                 response = 'CON Your Account Details.\n'
-                response += f'Member No: {user_state[session_id]['user']['MemberNo']}\nID No: {user_state[session_id]['user']['IDNo']}\n'
-                response += f'Surname: {user_state[session_id]['user']['Surname']}\nNames: {user_state[session_id]['user']['OtherNames']}\n'
-                response += f'SEX: {user_state[session_id]['user']['Sex']}\nDOB: {str(user_state[session_id]['user']['DOB']).split(" ")[0]}\n'
-                response += f'Mobile: {user_state[session_id]['user']['MobileNo']}\nSACCO: {user_state[session_id]['user']['CompanyName']}\n'
+                response += f"Member No: {user_state[session_id]['user']['MemberNo']}\nID No: {user_state[session_id]['user']['IDNo']}\n"
+                response += f"Surname: {user_state[session_id]['user']['Surname']}\nNames: {user_state[session_id]['user']['OtherNames']}\n"
+                response += f"SEX: {user_state[session_id]['user']['Sex']}\nDOB: {str(user_state[session_id]['user']['DOB']).split(' ')[0]}\n"
+                response += f"Mobile: {user_state[session_id]['user']['MobileNo']}\nSACCO: {user_state[session_id]['user']['CompanyName']}\n"
                 response += '#.Previous Menu\n00.Main Menu\nq.Exit\n'   
             else:
                 response = "END Invalid input."
